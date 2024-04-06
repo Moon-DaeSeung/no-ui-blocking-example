@@ -1,22 +1,13 @@
 abstract class Scheduler<SOURCE, TARGET> {
 	private limit: number;
-	private interval: number;
-	constructor({
-		concurrency: limit = 1,
-		interval = 0
-	}: { concurrency?: number; interval?: number } = {}) {
-		this.limit = limit;
-		this.interval = interval;
+	constructor({ concurrency = 1 }: { concurrency?: number } = {}) {
+		this.limit = concurrency;
 	}
 
 	protected abstract read(): SOURCE[];
-	protected write(acc: TARGET[], current: TARGET[]): TARGET[] {
-		acc.push(...current);
-		return acc;
-	}
+	protected abstract write(acc: TARGET[], current: TARGET[]): TARGET[]
 	protected abstract process(items: SOURCE[]): TARGET[];
 
-	i = 0;
 	private run(acc: TARGET[], done: () => void): Promise<TARGET[]> {
 		return new Promise((resolve) => {
 			setTimeout(() => {
@@ -42,7 +33,6 @@ abstract class Scheduler<SOURCE, TARGET> {
 					return;
 				}
 				while (running < this.limit) {
-					console.log('running', running);
 					running++;
 					this.run(targets, () => {
 						isDone = true;
