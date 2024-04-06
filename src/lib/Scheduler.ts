@@ -1,7 +1,12 @@
 abstract class Scheduler<SOURCE, TARGET> {
 	private limit: number;
-	constructor({ limit = 1 }: { limit?: number }) {
+	private interval: number;
+	constructor({
+		concurrency: limit = 1,
+		interval = 0
+	}: { concurrency?: number; interval?: number } = {}) {
 		this.limit = limit;
+		this.interval = interval;
 	}
 
 	protected abstract read(): SOURCE[];
@@ -11,31 +16,40 @@ abstract class Scheduler<SOURCE, TARGET> {
 	}
 	protected abstract process(items: SOURCE[]): TARGET[];
 
-	private async asyncRun(acc: TARGET[], done: () => void): Promise<void> {
-		const sources = this.read();
-		if (sources.length === 0) {
-			return done();
-		}
-		const targets = this.process(sources);
-		this.write(acc, targets);
+	i = 0;
+	private run(acc: TARGET[], done: () => void): Promise<TARGET[]> {
+		return new Promise((resolve) => {
+			setTimeout(() => {
+				const sources = this.read();
+				if (sources.length === 0) {
+					done();
+				}
+				const targets = this.process(sources);
+				const result = this.write(acc, targets);
+				resolve(result);
+			}, 0);
+		});
 	}
 
-	do() {
+	do(): Promise<TARGET[]> {
 		return new Promise((resolve) => {
-			const targets: TARGET[] = [];
 			let isDone = false;
 			let running = 0;
+			let targets: TARGET[] = [];
 			const next = () => {
 				if (isDone) {
 					resolve(targets);
 					return;
 				}
 				while (running < this.limit) {
+					console.log('running', running);
 					running++;
-					this.asyncRun(targets, () => {
+					this.run(targets, () => {
 						isDone = true;
-					}).then(() => {
+					}).then((result) => {
 						running--;
+						targets = result;
+
 						next();
 					});
 				}
